@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-server-0-nodeport
+  namespace: vault
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: vault-0
+  ports:
+    - name: vaulthttp
+      nodePort: 30200
+      port: 8700
+      protocol: TCP
+      targetPort: 8200
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-server-1-nodeport
+  namespace: vault
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: vault-1
+  ports:
+    - name: vaulthttp
+      nodePort: 30201
+      port: 8701
+      protocol: TCP
+      targetPort: 8200
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-server-2-nodeport
+  namespace: vault
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: vault-2
+  ports:
+    - name: vaulthttp
+      nodePort: 30202
+      port: 8702
+      protocol: TCP
+      targetPort: 8200
+  type: NodePort

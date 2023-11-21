@@ -1,0 +1,172 @@
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vault-server-certificate
+  namespace: vault
+spec:
+  secretName: tls-server
+
+  issuerRef:
+    name: ca-issuer
+    kind: ClusterIssuer
+
+  secretTemplate:
+    labels:
+      k8s-app: vault-server
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  subject:
+    organizationalUnits:
+      - Escritorio
+    organizations:
+      - Casa
+    localities:
+      - Famalicao
+    provinces:
+      - Braga
+    countries:
+      - PT
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - server auth
+    - client auth
+    - key encipherment
+    - data encipherment
+    - digital signature    
+  dnsNames:
+    - localhost
+    - vault-0.vault-internal
+    - vault-1.vault-internal
+    - vault-2.vault-internal
+  ipAddresses:
+    - 127.0.0.1
+
+  # The use of the common name field has been deprecated since 2000 and is
+  # discouraged from being used.
+  commonName: vault.k3d.internal
+
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: vault
+  namespace: kube-system
+spec:
+  repo: https://helm.releases.hashicorp.com
+  chart: vault
+  version: 0.27.0
+  targetNamespace: vault
+  valuesContent: |-
+    global:
+      enabled: true
+      tlsDisable: false
+    
+    injector:
+      enabled: false
+    
+    csi:
+      enabled: false
+
+    server:
+      image:
+        repository: "hashicorp/vault"
+        tag: "latest"
+    
+      resources:
+        requests:
+          memory: 1Gi
+          cpu: 2000m
+        limits:
+          memory: 2Gi
+          cpu: 2000m
+    
+      readinessProbe:
+        enabled: true
+        path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+      livenessProbe:
+        enabled: true
+        path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+        initialDelaySeconds: 60
+    
+      extraEnvironmentVars:
+        VAULT_CACERT: /vault/userconfig/tls-ca/tls.crt
+    
+      extraVolumes:
+        - type: secret
+          name: tls-server
+        - type: secret
+          name: tls-ca
+    
+      auditStorage:
+        enabled: true
+    
+      standalone:
+        enabled: false
+    
+      affinity: null
+      
+      # Run Vault in "HA" mode.
+      ha:
+        enabled: true
+        replicas: 3
+        raft:
+          enabled: true
+          setNodeId: true
+    
+          config: |
+            ui = true
+            listener "tcp" {
+              address = "[::]:8200"
+              cluster_address = "[::]:8201"
+              tls_cert_file = "/vault/userconfig/tls-server/tls.crt"
+              tls_key_file = "/vault/userconfig/tls-server/tls.key"
+              tls_client_ca_file = "/vault/userconfig/tls-ca/tls.crt"
+            }
+    
+            storage "raft" {
+              path = "/vault/data"
+              retry_join {
+                leader_api_addr = "https://vault-0.vault-internal:8200"
+                leader_ca_cert_file = "/vault/userconfig/tls-ca/tls.crt"
+                leader_client_cert_file = "/vault/userconfig/tls-server/tls.crt"
+                leader_client_key_file = "/vault/userconfig/tls-server/tls.key"
+              }
+              retry_join {
+                leader_api_addr = "https://vault-1.vault-internal:8200"
+                leader_ca_cert_file = "/vault/userconfig/tls-ca/tls.crt"
+                leader_client_cert_file = "/vault/userconfig/tls-server/tls.crt"
+                leader_client_key_file = "/vault/userconfig/tls-server/tls.key"
+              }
+              retry_join {
+                leader_api_addr = "https://vault-2.vault-internal:8200"
+                leader_ca_cert_file = "/vault/userconfig/tls-ca/tls.crt"
+                leader_client_cert_file = "/vault/userconfig/tls-server/tls.crt"
+                leader_client_key_file = "/vault/userconfig/tls-server/tls.key"
+              }
+            }
+    
+            service_registration "kubernetes" {}
+    
+    # Vault UI
+    ui:
+      enabled: true
+      serviceType: "LoadBalancer"
+      serviceNodePort: null
+      externalPort: 8200
+
+    ingress:
+      enabled: true
+      tls:
+        - secretName: tls-server
+          hosts:
+            - vault.k3d.internal
+      hosts:
+        - host: vault.k3d.internal
+          paths: []
