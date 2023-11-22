@@ -31,8 +31,8 @@ CA_FILE_NAME="k3s-public-ca"
 
 k3d cluster create $CLUSTER_NAME \
     --api-port 6443 \
-    -p "8200:8200@loadbalancer" -p "8700-8702:30200-30202@agent:0" \
-    --agents 1 \
+    -p "8200:8200@loadbalancer" -p "8700-8702:30200-30202@agent:0,2" \
+    --agents 3 \
     --k3s-arg '--disable=metrics-server@server:*' \
     --volume "$(pwd)/cert-manager-helm.yaml:/var/lib/rancher/k3s/server/manifests/cert-manager.yaml"
 
