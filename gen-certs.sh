@@ -11,6 +11,26 @@ then
   openssl req -x509 -new -nodes -key ${CA_FILE_NAME}-key.pem -sha256 -days 1826 -out ${CA_FILE_NAME}.pem -subj "/CN=${CA_CN}/C=PT/ST=Braga/L=Famalicao/O=Casa"
 fi
 
+cat <<EOT > $(pwd)/charts/01-secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ca-key-pair
+  namespace: cert-manager
+type: kubernetes.io/tls  
+data:
+  tls.crt: $(base64 -w 0 $(pwd)/${CA_FILE_NAME}.pem)
+  tls.key: $(base64 -w 0 $(pwd)/${CA_FILE_NAME}-key.pem)
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tls-ca
+  namespace: vault
+data:
+  tls.crt: $(base64 -w 0 $(pwd)/${CA_FILE_NAME}.pem)
+EOT
+
 #N_CERTS=3
 
 # # Certificado

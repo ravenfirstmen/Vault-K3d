@@ -61,12 +61,16 @@ metadata:
 spec:
   repo: https://helm.releases.hashicorp.com
   chart: vault
-  version: 0.27.0
+  version: 0.28.0
   targetNamespace: vault
   valuesContent: |-
     global:
       enabled: true
+      namespace: "vault"
       tlsDisable: false
+      externalVaultAddr: ""
+      serverTelemetry:
+        prometheusOperator: false      
     
     injector:
       enabled: false
@@ -79,6 +83,9 @@ spec:
         repository: "hashicorp/vault"
         tag: "latest"
     
+      nodeSelector: 
+        node-role: "worker"
+
       resources:
         requests:
           memory: 1Gi
@@ -109,9 +116,8 @@ spec:
     
       standalone:
         enabled: false
-    
-      affinity: null
-      
+
+                       
       # Run Vault in "HA" mode.
       ha:
         enabled: true
@@ -163,6 +169,7 @@ spec:
 
     ingress:
       enabled: true
+      ingressClassName: "traefik"
       tls:
         - secretName: tls-server
           hosts:
