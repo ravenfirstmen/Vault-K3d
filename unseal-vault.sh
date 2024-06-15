@@ -1,8 +1,10 @@
 #!/bin/bash
 
-# kubectl apply -f expose-services.yaml
+HOST="localhost"
+CA_FILE_NAME="k3s-public-ca.pem"
 
-VAULT_PORTS=("8700" "8701" "8702")
+# node ports in vault namespace should be the 1 per node
+VAULT_PORTS=$(kubectl get services -n vault -o jsonpath='{.items[?(@.spec.type=="NodePort")].spec.ports[0].port}')
 
 UNSEAL_INFO_FILE="unseal-info.json"
 
@@ -28,9 +30,9 @@ function unseal_vault {
 
 for vault_port in ${VAULT_PORTS[@]}; do
 
-    export VAULT_ADDR=https://localhost:${vault_port}
+    export VAULT_ADDR="https://${HOST}:${vault_port}"
     #export VAULT_SKIP_VERIFY="true"
-    export VAULT_CACERT=k3s-public-ca.pem
+    export VAULT_CACERT=${CA_FILE_NAME}
 
     vault status 1>/dev/null
 
